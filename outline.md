@@ -45,10 +45,11 @@ When Workflows, Forms, Templates, Scripts, and their associated configuration op
 
 ### Building With Rewst
 
+_Audience: Advanced MSP Engineers, Automation engineers, or MSP Automation Consultants who have not extensively used Rewst. Previous experience automating processes with technologies such as PowerShell, RMMs, or enterprise tools will be useful._
 ##### Getting Started
 
 ###### Logging in
-Access to the Rewst platform is at https://app.rewst.io. Rewst uses Microsoft Azure AD as its authenticator, so your own Azure Active Directory log in will allow you into the platform. If you do not have access, either someone from your organization must invite you, or you will need to be set up with Rewst. Contact us if you need help getting in.
+Access to the Rewst platform is from the main URL at https://app.rewst.io. Rewst uses Microsoft Azure AD as its authenticator, so your own Azure Active Directory log in will allow you into the platform. If you do not have access, either someone from your organization must invite your account, or you will need to be set up with Rewst. Contact us if you need help getting in.
 ###### Integration Setup
 Working with Rewst starts with Integrations. These really need to be set up in order to unlock the power of automating processes that work between multiple systems. Configuring an integration is usually fairly simple: Choose the integration you want to configure, set up an API account within that application, and then provide the details in the Rewst Integrations page. 
 
@@ -57,14 +58,47 @@ Often these integrations will require permissions configuration. What these perm
 Begin with setting up Integrations for your PSA, RMM, and Microsoft accounts. As an MSP and (typically) a Microsoft CSP (Cloud Service Provider), these are the foundational items. Later on, you can configure integrations with Cybersecurity tools, hardware and licensing vendors, documentation platforms, and more. 
 
 ###### Your first workflow
-Let's start off by building a very simple example workflow that uses the Microsoft Graph integrations to list the members of the `Global Administrators` group in Azure Active Directory. This assumes that you have configured the _Microsoft Graph_ integration at least for your organization. 
+Let's start off by building a very simple example workflow that uses the Microsoft Graph integrations to list the members of a group in Azure Active Directory. This assumes that you have configured the _Microsoft Graph_ integration at least for your organization. 
 
-Steps for the *List Global Administrators* Workflow:
-1. Log into Rewst, click **Workflows** and press the `+` button to create a new Workflow. 
-2. Name the workflow `List Global Administrators` 
-3. On the 
+Steps for the *List Group Members* Workflow:
+1. Log into Rewst, click **Workflows** and press the `Create` button to create a new Workflow. 
+2. Name the workflow `List Group Members` 
+3. On the left-hand side of the screen, find the group of Actions for `Microsoft Graph` and find the `List Group Members` action. Drag that onto the workflow canvas.
+4. Click on the action, and for the `Select` field, type in `displayName` and `id`. Press Enter after typing each of these in and they will add to the list of items to select.
+5. For the Group ID, select a group (The integration should find all of the groups in your Azure Active Directory.).
+6. Press the `Test` button at the top right corner of the editor. This will run the workflow in a test mode, displaying information about how it is executing on the screen. In the results, you should see under `results -> data -> value` an expandable list of user names and IDs which are members of that group.
 
-###### Your first form
+This should illustrate a small example of the possibilities when creating a workflow. In a more complex scenario, we likely would have had first had steps to identify a group by its name or ID, and then we would pass that list onto another task to possibly perform some actions on its members. Rewst has functionality to iterate over or manipulate lists, which we will cover later.
 
-
-##### 
+###### Expanding into Forms and Templates
+Forms can have options that are generated with real-time queries into infrastructure services. For queries that are more complicated or rely on previous selections, we can use workflow-generated options for forms. Let's explore how this can work:
+1. Return to the `List Group Members` workflow. We are going to convert this workflow into an _Option Generator_ and we are going to make it accept a group identifier as an input. 
+2. On the top-right of the screen, click the _Pencil_-shaped icon to edit the Workflow properties
+3. Change the `Workflow Type` to `Option Generator`
+4. Click the `+` icon next to `Input Configuration` and add a varialbe named `group_id`
+5. Click Submit
+6. In the workflow, find the `microsoft_graph_list_group_members` action you created earlier, click it and click the _code editor_ icon next to the `Group ID` field. 
+7. Type in `{{ CTX.group_id }}` - You should notice the editor colorize and auto-complete as you type
+8. Click `Close` and click `Publish` on the top right of the screen to save the changes
+9. On the left navigation bar, click Forms, and then click the `+` icon to create a new form
+10. Name the form `Email Group Member`
+11. Drag a **Dropdown** field from the selector on the left to the main window where it says "Drop items here"
+12. Click on the field, name the *Field Name* `group_id`, set the _Field Label_ to `Group` and click the slider for _Dynamic Options_ to turn that on. Select _Microsoft Graph_ for the Integration and _Security Groups_ for the Resource.
+13. Drag another **Dropdown** to the window. This time set the _Field Name_ to `user_id` and _Field Label_ to User. Select _Dynamic Options_ but also select **Workflow Generated**. For the _Workflow_ select the `List Group Members` workflow we created earlier. Leave the _value_ at `id` but change the _Label Field_ to `displayName`. In the _Workflow Inputs_ field, select _Populate from Form Field_ and choose `group_id` from the selector.
+14. Save the Form, then click the Templates link on the left navigation, and press `Create` to create a new template. 
+15. Give the Template a Name, and some content. Let's start the template with "Dear `{{ CTX.givenName }}`, but enter any other words you'd like. Save the template when you're ready.
+16. Go back to Workflows, and we will `Create` a new workflow named `Email User` which will perform the automation actions.
+17. Click the Pencil icon on the top right to configure variables, and click the `+` to create an Input Configuration variable, and name that variable `user_id`. Click Submit to save, then Cancel to get back to the main editor window.
+18. Find the Action named `Get User` under the _Microsoft Graph_ section in the Actions list, and drag that to the canvas.
+19. Click the action, and edit the _User ID_ field by clicking the Code icon. Type in `{{ CTX.user_id }}` - Notice that the editor should auto-fill this based on you entering it as an input variable.
+20. Find the `sendmail` action in the _Core_ section and drag it to the workflow editor canvas. Click the action to set the parameters for it.
+21. For the **to** field, click the Code editor button, and in the editor type in `{{ TASKS.microsoft_graph_get_user.result.result.data.value.mail }}` -- Notice that the editor will autocomplete most of this for you
+22. For the **message** field, choose the Template you created earlier. Enter whatever you like for the **subject** and **title** fields.
+23. Draw a connecting arrow from dot below `Success` on the `microsoft_graph_get_user` action to the top of the `core_sendmail` action.
+24. Create a Trigger by clicking the **Add Trigger** button on the top of the workflow editor screen.
+    - Name: `Form Trigger`
+    - Organizations: (choose your organization)
+    - Trigger Type: choose `Core - Form Submission` from the drop-down list
+    - Form: choose the `Email Group Member` form that you created earlier
+26. Click the "Gear" icon next to the Form Trigger you created, and there will be a button to `View Form URLs` to see the URL for the form. Click this and click the URL to open the form.
+27. 
